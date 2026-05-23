@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, Table
+from sqlalchemy import Column, Index, Integer, String, Text, Boolean, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -7,42 +7,54 @@ book_authors = Table(
     'book_authors',
     Base.metadata,
     Column('book_id', Integer, ForeignKey('book.id')),
-    Column('person_id', Integer, ForeignKey('person.id'))
+    Column('person_id', Integer, ForeignKey('person.id')),
+    Index('idx_book_authors_book_id', 'book_id'),
+    Index('idx_book_authors_person_id', 'person_id'),
 )
 
 book_editors = Table(
     'book_editors',
     Base.metadata,
     Column('book_id', Integer, ForeignKey('book.id')),
-    Column('person_id', Integer, ForeignKey('person.id'))
+    Column('person_id', Integer, ForeignKey('person.id')),
+    Index('idx_book_editors_book_id', 'book_id'),
+    Index('idx_book_editors_person_id', 'person_id'),
 )
 
 book_translators = Table(
     'book_translators',
     Base.metadata,
     Column('book_id', Integer, ForeignKey('book.id')),
-    Column('person_id', Integer, ForeignKey('person.id'))
+    Column('person_id', Integer, ForeignKey('person.id')),
+    Index('idx_book_translators_book_id', 'book_id'),
+    Index('idx_book_translators_person_id', 'person_id'),
 )
 
 book_bookshelves = Table(
     'book_bookshelves',
     Base.metadata,
     Column('book_id', Integer, ForeignKey('book.id')),
-    Column('bookshelf_id', Integer, ForeignKey('bookshelf.id'))
+    Column('bookshelf_id', Integer, ForeignKey('bookshelf.id')),
+    Index('idx_book_bookshelves_book_id', 'book_id'),
+    Index('idx_book_bookshelves_bookshelf_id', 'bookshelf_id'),
 )
 
 book_languages = Table(
     'book_languages',
     Base.metadata,
     Column('book_id', Integer, ForeignKey('book.id')),
-    Column('language_id', Integer, ForeignKey('language.id'))
+    Column('language_id', Integer, ForeignKey('language.id')),
+    Index('idx_book_languages_book_id', 'book_id'),
+    Index('idx_book_languages_language_id', 'language_id'),
 )
 
 book_subjects = Table(
     'book_subjects',
     Base.metadata,
     Column('book_id', Integer, ForeignKey('book.id')),
-    Column('subject_id', Integer, ForeignKey('subject.id'))
+    Column('subject_id', Integer, ForeignKey('subject.id')),
+    Index('idx_book_subjects_book_id', 'book_id'),
+    Index('idx_book_subjects_subject_id', 'subject_id'),
 )
 
 
@@ -170,6 +182,10 @@ class Format(Base):
     # Relationships
     book = relationship("Book", back_populates="formats")
 
+    __table_args__ = (
+        Index('idx_format_book_id', 'book_id'),
+    )
+
 
 class Summary(Base):
     __tablename__ = "summary"
@@ -180,3 +196,7 @@ class Summary(Base):
     
     # Relationships
     book = relationship("Book", back_populates="summaries")
+
+    __table_args__ = (
+        Index('idx_summary_book_id', 'book_id'),
+    )

@@ -48,9 +48,6 @@ class Config:
     temp_path: Path = Path(
         os.getenv("CATALOG_TEMP_DIR", "/app/data/catalog/temp")
     )
-    rdf_dir: Path = Path(
-        os.getenv("CATALOG_RDF_DIR", "/app/data/catalog/rdf")
-    )
     log_dir: Path = Path(
         os.getenv("CATALOG_LOG_DIR", "/app/data/catalog/logs")
     )
@@ -74,8 +71,7 @@ class Config:
 CONFIG = Config()
 
 DOWNLOAD_PATH = CONFIG.temp_path / "catalog.tar.bz2"
-MOVE_SOURCE_PATH = CONFIG.temp_path / "cache" / "epub"
-MOVE_TARGET_PATH = CONFIG.rdf_dir
+EXTRACTED_RDF_ROOT = CONFIG.temp_path / "cache" / "epub"
 
 
 # =============================================================================
@@ -179,7 +175,21 @@ def temporary_directory(path: Path):
         yield path
     finally:
         if path.exists():
-            shutil.rmtree(path, ignore_errors=True)
+            logger.info(
+                "Cleaning up temporary catalog directory (includes extracted RDF files): %s",
+                path,
+            )
+            try:
+                shutil.rmtree(path)
+                logger.info(
+                    "Temporary catalog directory cleanup complete: %s",
+                    path,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to clean temporary catalog directory: %s",
+                    path,
+                )
 
 
 def format_file_size(size_in_bytes: int) -> str:
@@ -354,7 +364,7 @@ def download_file_with_progress(url: str, destination_path: Path) -> Dict:
 
 class EntityCache:
     def __init__(self, db: Session):
-        self.people: Dict[Tuple[str, int, int], Person] = {
+        self.people: Dict[Tuple[str, Optional[int], Optional[int]], Person] = {
             (p.name, p.birth_year, p.death_year): p
             for p in db.query(Person).all()
         }
@@ -473,6 +483,7 @@ def get_or_create_subject(
 
 def put_catalog_in_db(
     db: Session,
+    rdf_root: Path,
     book_ids: Optional[List[int]] = None,
 ) -> Dict:
     """Import catalog data into the database."""
@@ -480,7 +491,7 @@ def put_catalog_in_db(
     if book_ids is None:
         book_ids = []
 
-        for item in CONFIG.rdf_dir.iterdir():
+        for item in rdf_root.iterdir():
             if item.is_dir() and item.name.isdigit():
                 book_ids.append(int(item.name))
 
@@ -521,7 +532,7 @@ def put_catalog_in_db(
 
             last_progress_at = now
 
-        book_path = CONFIG.rdf_dir / str(book_id) / f"pg{book_id}.rdf"
+        book_path = rdf_root / str(book_id) / f"pg{book_id}.rdf"
 
         try:
             book_data = get_book(book_id, str(book_path))
@@ -773,72 +784,30 @@ def main():
                     time.monotonic() - extract_started,
                 )
 
-                # Detect stale directories
-                logger.info("Detecting stale directories...")
+                if not EXTRACTED_RDF_ROOT.exists():
+                    raise RuntimeError(
+                        f"Expected extracted RDF directory was not found: {EXTRACTED_RDF_ROOT}"
+                    )
 
-                MOVE_TARGET_PATH.mkdir(parents=True, exist_ok=True)
-
-                new_directory_set = get_directory_set(MOVE_SOURCE_PATH)
-                old_directory_set = get_directory_set(MOVE_TARGET_PATH)
-
-                stale_directory_set = old_directory_set - new_directory_set
+                extracted_directory_set = get_directory_set(EXTRACTED_RDF_ROOT)
 
                 logger.info(
-                    "New directories found: %s",
-                    len(new_directory_set),
+                    "Extracted RDF directories found: %s",
+                    len(extracted_directory_set),
                 )
-
-                logger.info(
-                    "Existing directories found: %s",
-                    len(old_directory_set),
-                )
-
-                logger.info(
-                    "Stale directories detected: %s",
-                    len(stale_directory_set),
-                )
-
-                # Atomic replacement moves
-                logger.info("Moving new catalog data...")
-
-                for source_dir in MOVE_SOURCE_PATH.iterdir():
-                    if not source_dir.is_dir():
-                        continue
-
-                    target_dir = MOVE_TARGET_PATH / source_dir.name
-                    temp_target = target_dir.with_suffix(".tmp")
-
-                    if temp_target.exists():
-                        shutil.rmtree(temp_target)
-
-                    shutil.move(str(source_dir), str(temp_target))
-
-                    if target_dir.exists():
-                        shutil.rmtree(target_dir)
-
-                    os.replace(temp_target, target_dir)
-
-                # Remove stale dirs
-                logger.info("Removing stale directories...")
-
-                for stale_name in stale_directory_set:
-                    stale_path = MOVE_TARGET_PATH / stale_name
-
-                    if stale_path.exists():
-                        shutil.rmtree(stale_path)
 
                 # Import into DB
                 logger.info("Putting catalog in database...")
 
                 changed_book_ids = sorted(
                     int(name)
-                    for name in new_directory_set
+                    for name in extracted_directory_set
                     if name.isdigit()
                 )
 
                 skipped_non_book_directories = sorted(
                     name
-                    for name in new_directory_set
+                    for name in extracted_directory_set
                     if not name.isdigit()
                 )
 
@@ -850,6 +819,7 @@ def main():
 
                 stats = put_catalog_in_db(
                     db,
+                    EXTRACTED_RDF_ROOT,
                     changed_book_ids,
                 )
 

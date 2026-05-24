@@ -14,7 +14,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Gutendex Next", description="Free ebooks API")
 app.router.redirect_slashes = False
 
-# Add CORS middleware (allow all origins
+# Add CORS middleware (allow all origins)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

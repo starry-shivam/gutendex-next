@@ -93,9 +93,10 @@ def get_book(id, xml_file_path):
             continue
         subject_type = subject_type.get('{%(rdf)s}resource' % NAMESPACES)
         value = subject.find('.//{%(rdf)s}value' % NAMESPACES)
-        value = value.text
+        if value is None or value.text is None:
+            continue
         if subject_type in ('%(dc)sLCSH' % NAMESPACES):
-            result['subjects'].add(value)
+            result['subjects'].add(value.text)
     result['subjects'] = list(result['subjects'])
     result['subjects'].sort()
 
@@ -109,9 +110,12 @@ def get_book(id, xml_file_path):
 
     # Copyright
     rights = book.find('.//{%(dc)s}rights' % NAMESPACES)
-    if rights.text.startswith('Public domain in the USA.'):
+    rights_text = rights.text if rights is not None else None
+    if rights_text is None:
+        result['copyright'] = None
+    elif rights_text.startswith('Public domain in the USA.'):
         result['copyright'] = False
-    elif rights.text.startswith('Copyrighted.'):
+    elif rights_text.startswith('Copyrighted.'):
         result['copyright'] = True
     else:
         result['copyright'] = None
@@ -119,6 +123,8 @@ def get_book(id, xml_file_path):
     # Formats (preferring image URLs to `noimages` URLs)
     for file in book.findall('.//{%(pg)s}file' % NAMESPACES):
         content_type = file.find('{%(dc)s}format//{%(rdf)s}value' % NAMESPACES)
+        if content_type is None or content_type.text is None:
+            continue
         if (
             content_type.text not in result['formats']
             or 'noimages' in result['formats'][content_type.text]

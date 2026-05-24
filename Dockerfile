@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY . /app
 
-RUN mkdir -p /app/data/catalog/temp /app/data/catalog/rdf /app/data/catalog/logs \
+RUN mkdir -p /app/data/catalog/temp /app/data/catalog/logs \
     && chmod +x /app/entrypoint.sh
 
 EXPOSE 8000

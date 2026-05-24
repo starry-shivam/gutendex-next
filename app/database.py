@@ -21,6 +21,7 @@ if DATABASE_URL.startswith("sqlite"):
         cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.execute("PRAGMA cache_size=10000")
         cursor.close()
+
 else:
     # PostgreSQL or other databases
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)

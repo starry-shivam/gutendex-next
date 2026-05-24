@@ -6,6 +6,9 @@ services:
     restart: unless-stopped
     ports:
       - 5073:8000
+    environment:
+      UVICORN_WORKERS: "2"
+      UVICORN_LIMIT_MAX_REQUESTS: "2000"
     volumes:
       - ./data:/app/data  # Database and catalog data
     user: 1000:1000

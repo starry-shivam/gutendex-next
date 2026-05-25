@@ -3,7 +3,6 @@ set -e
 
 echo "Initializing database..."
 python - <<'PY'
-import os
 from app.database import engine, Base
 
 # Create all tables
